@@ -21,8 +21,7 @@ export function CreatePage() {
 
   const handleIdeaSubmit = async (idea: Parameters<typeof setIdea>[0]) => {
     setIdea(idea);
-    // Trigger analysis immediately
-    usePromptWorkflowStore.getState().analyzeIdea();
+    await usePromptWorkflowStore.getState().analyzeIdea();
   };
 
   return (

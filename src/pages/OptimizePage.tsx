@@ -16,11 +16,9 @@ export function OptimizePage() {
     reset,
   } = useOptimizeWorkflowStore();
 
-  const handleSubmit = (prompt: string) => {
+  const handleSubmit = async (prompt: string) => {
     setOriginalPrompt(prompt);
-    // Trigger immediately
-    useOptimizeWorkflowStore.setState({ originalPrompt: prompt });
-    setTimeout(() => useOptimizeWorkflowStore.getState().analyze(), 0);
+    await useOptimizeWorkflowStore.getState().analyze();
   };
 
   return (

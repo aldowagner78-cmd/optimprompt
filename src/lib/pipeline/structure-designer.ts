@@ -285,7 +285,14 @@ function deriveTechDecisions(analysis: AnalysisResult): string[] {
   }
 
   for (const tech of analysis.suggestedTechnologies) {
-    if (!decisions.some(d => d.toLowerCase().includes(tech.toLowerCase()))) {
+    // V2.3: Double-check relevance against raw input (safety net)
+    const STOP = new Set(['para', 'como', 'sobre', 'desde', 'entre', 'hasta', 'cada', 'todo', 'toda', 'todos', 'estado', 'puede', 'debe', 'tiene', 'hacer', 'sistema', 'seguro', 'segura', 'salud', 'datos', 'interactivo']);
+    const techWords = tech.toLowerCase().split(/[\s/(),&+]+/).filter(w => w.length > 3 && !STOP.has(w));
+    const inputWords = new Set(
+      analysis.rawInput.toLowerCase().split(/[\s,;.!?¿¡"'()\[\]{}:]+/).filter(w => w.length > 2)
+    );
+    const isRelevant = techWords.some(w => inputWords.has(w));
+    if (isRelevant && !decisions.some(d => d.toLowerCase().includes(tech.toLowerCase()))) {
       decisions.push(tech);
     }
   }

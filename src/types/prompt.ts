@@ -66,6 +66,7 @@ export interface EvaluationScore {
   functionalCoverage: number;
   domainSpecificity: number;
   mechanicSpecificity: number;
+  genericityPenalty: number;
   overall: number;
 }
 

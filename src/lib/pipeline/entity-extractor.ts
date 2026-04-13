@@ -33,6 +33,41 @@ const ENTITY_PATTERNS: EntityPattern[] = [
   { keywords: ['límite', 'restricción', 'regla'], name: 'Regla', description: 'Regla o restricción configurable del sistema', defaultAttributes: ['id', 'tipo', 'valor', 'condición', 'acción', 'activa'] },
 ];
 
+// V2.3: Dynamic actor/role extraction from input text
+const ACTOR_PATTERNS: Array<{ pattern: RegExp; name: string; desc: string; attrs: string[] }> = [
+  { pattern: /\b(?:padre|papá|tutor)\b/i, name: 'Padre', desc: 'Padre/tutor que supervisa', attrs: ['id', 'nombre', 'hijosAsociados', 'configuración'] },
+  { pattern: /\b(?:madre|mamá)\b/i, name: 'Madre', desc: 'Madre/tutora que supervisa', attrs: ['id', 'nombre', 'hijosAsociados', 'configuración'] },
+  { pattern: /\bhij[oa]s?\b/i, name: 'Hijo', desc: 'Menor supervisado', attrs: ['id', 'nombre', 'edad', 'padreAsociado', 'restricciones'] },
+  { pattern: /\bvendedor(?:es|a|as)?\b/i, name: 'Vendedor', desc: 'Agente de ventas', attrs: ['id', 'nombre', 'equipo', 'metaMensual', 'comisiónBase'] },
+  { pattern: /\bgerente[s]?\b/i, name: 'Gerente', desc: 'Gerente con vista global', attrs: ['id', 'nombre', 'equipoACargo', 'permisos'] },
+  { pattern: /\bpaciente[s]?\b/i, name: 'Paciente', desc: 'Paciente del sistema', attrs: ['id', 'nombre', 'historial', 'contacto'] },
+  { pattern: /\bdoctor(?:es|a|as)?\b/i, name: 'Doctor', desc: 'Profesional médico', attrs: ['id', 'nombre', 'especialidad', 'agenda', 'consultorio'] },
+  { pattern: /\bprofesor(?:es|a|as)?\b/i, name: 'Profesor', desc: 'Educador que crea contenido', attrs: ['id', 'nombre', 'cursos', 'especialidad'] },
+  { pattern: /\bestudiante[s]?\b/i, name: 'Estudiante', desc: 'Aprendiz del sistema', attrs: ['id', 'nombre', 'nivel', 'progreso', 'cursosInscritos'] },
+  { pattern: /\balumno[s]?\b/i, name: 'Alumno', desc: 'Aprendiz del sistema', attrs: ['id', 'nombre', 'nivel', 'progreso', 'cursosInscritos'] },
+  { pattern: /\bconductor(?:es|a|as)?\b/i, name: 'Conductor', desc: 'Conductor del servicio', attrs: ['id', 'nombre', 'vehículo', 'licencia', 'rating'] },
+  { pattern: /\bpasajero[s]?\b/i, name: 'Pasajero', desc: 'Usuario de transporte', attrs: ['id', 'nombre', 'ubicación', 'historialViajes'] },
+  { pattern: /\brepartidor(?:es|a|as)?\b/i, name: 'Repartidor', desc: 'Agente de entrega', attrs: ['id', 'nombre', 'zona', 'pedidosActivos'] },
+  { pattern: /\binquilino[s]?\b/i, name: 'Inquilino', desc: 'Arrendatario de propiedad', attrs: ['id', 'nombre', 'propiedad', 'contrato'] },
+  { pattern: /\bpropietario[s]?\b/i, name: 'Propietario', desc: 'Dueño de propiedad', attrs: ['id', 'nombre', 'propiedades', 'ingresos'] },
+];
+
+function extractDynamicActors(input: string, existingNames: Set<string>): ExtractedEntity[] {
+  const actors: ExtractedEntity[] = [];
+  for (const ap of ACTOR_PATTERNS) {
+    if (ap.pattern.test(input) && !existingNames.has(ap.name)) {
+      existingNames.add(ap.name);
+      actors.push({
+        name: ap.name,
+        description: ap.desc,
+        attributes: [...ap.attrs],
+        relations: [],
+      });
+    }
+  }
+  return actors;
+}
+
 function detectRelations(entities: ExtractedEntity[]): ExtractedEntity[] {
   const entityNames = new Set(entities.map(e => e.name));
 
@@ -75,6 +110,10 @@ export function extractEntities(input: string): ExtractedEntity[] {
       });
     }
   }
+
+  // V2.3: Extract dynamic actors/roles from input text
+  const actorEntities = extractDynamicActors(input, seen);
+  matched.push(...actorEntities);
 
   return detectRelations(matched);
 }

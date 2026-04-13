@@ -139,7 +139,7 @@ const MECHANIC_RULES: MechanicRule[] = [
     label: 'Evaluación / exámenes',
     category: 'validation',
     patterns: [
-      /examen|evaluaci[oó]n|quiz|test\s+(?:de|del)/i,
+      /ex[aá]men|evaluaci[oó]n|quiz|test\s+(?:de|del)/i,
       /calificar|nota|puntaje\s+(?:de|del)\s+(?:examen|evaluación)/i,
       /preguntas?\s+(?:y\s+)?respuestas?/i,
     ],
@@ -195,6 +195,8 @@ const MECHANIC_RULES: MechanicRule[] = [
       /embudo|funnel/i,
       /(?:gestión|manejo)\s+(?:de\s+)?(?:clientes|leads|prospectos)/i,
       /CRM/i,
+      /registr(?:e|ar?|o)\s+(?:cada\s+)?ventas?/i,
+      /(?:equipo|fuerza)\s+(?:de\s+)?ventas/i,
     ],
     subMechanics: ['pipeline de estados', 'historial de contactos', 'proyección de cierre', 'métricas de conversión'],
   },
@@ -233,7 +235,7 @@ const MECHANIC_RULES: MechanicRule[] = [
       /unlock/i,
       /contenido\s+(?:bloqueado|premium|exclusivo)/i,
     ],
-    subMechanics: ['requisitos por nivel', 'contenido progresivo', 'preview de contenido bloqueado', 'notificación de desbloqueo'],
+    subMechanics: ['requisitos por nivel', 'lecciones y contenido progresivo', 'preview de contenido bloqueado', 'notificación de desbloqueo'],
   },
 
   // ── Restriction ──────────────────────────────────────────────────

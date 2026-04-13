@@ -30,6 +30,31 @@ const PATTERN_DETECTORS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /multi[\s-]*idioma|i18n|traducir|internacionaliz/i, name: 'i18n' },
 ];
 
+// V2.3: Anti-hallucination — filter tech suggestions by input relevance
+const BROAD_DOMAIN_WORDS = new Set([
+  'salud', 'seguro', 'segura', 'sistema', 'interactivo', 'interactiva',
+  'datos', 'avanzado', 'avanzada', 'herramienta', 'workflow',
+  // Spanish stop words — too common to trigger tech relevance
+  'para', 'como', 'sobre', 'desde', 'entre', 'hasta', 'cada',
+  'todo', 'toda', 'todos', 'todas', 'otro', 'otra', 'otros',
+  'este', 'esta', 'estos', 'estas', 'estado', 'puede', 'debe',
+  'tiene', 'hacer', 'haber', 'será', 'sido', 'también',
+]);
+
+function filterByInputRelevance(suggestions: string[], rawInput: string): string[] {
+  const inputWords = new Set(
+    rawInput.toLowerCase()
+      .split(/[\s,;.!?¿¡"'()\[\]{}:]+/)
+      .filter(w => w.length > 2)
+  );
+  return suggestions.filter(suggestion => {
+    const sugWords = suggestion.toLowerCase()
+      .split(/[\s/(),&+]+/)
+      .filter(w => w.length > 3 && !BROAD_DOMAIN_WORDS.has(w));
+    return sugWords.some(w => inputWords.has(w));
+  });
+}
+
 export function analyzeInput(rawInput: string, hintProjectType?: ProjectType): AnalysisResult {
   const intent = parseIntent(rawInput);
   const constraints = extractConstraints(rawInput);
@@ -56,7 +81,7 @@ export function analyzeInput(rawInput: string, hintProjectType?: ProjectType): A
 
   // Suggest technologies based on domain
   const domainTechs = TECH_SUGGESTIONS[intent.domain] ?? [];
-  const suggestedTechnologies = [...domainTechs];
+  const suggestedTechnologies = filterByInputRelevance(domainTechs, rawInput);
 
   return {
     rawInput,

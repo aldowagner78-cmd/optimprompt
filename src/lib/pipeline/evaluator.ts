@@ -408,6 +408,59 @@ function scoreMechanicSpecificity(prompt: string): { score: number; detail: stri
   return { score: Math.max(1, Math.min(score, 10)), detail: signals.join('; ') || 'sin mecánicas específicas' };
 }
 
+// ── V2.3 Anti-hallucination metric ──────────────────────────────────
+
+function scoreGenericityPenalty(prompt: string): { score: number; detail: string } {
+  let penalty = 1;
+  const issues: string[] = [];
+  const lower = prompt.toLowerCase();
+
+  // Penalize generic placeholder module/feature names
+  const genericNames = [
+    'core feature', 'funcionalidad principal', 'feature principal',
+    'módulo principal', 'main feature', 'entidad principal',
+  ];
+  const foundGeneric = genericNames.filter(g => lower.includes(g));
+  if (foundGeneric.length > 0) {
+    penalty += foundGeneric.length * 2;
+    issues.push(`módulos genéricos: ${foundGeneric.join(', ')}`);
+  }
+
+  // Penalize vague flow/action patterns
+  const vaguePatterns = [
+    'interactúa con el contenido',
+    'navega a funcionalidad',
+    'ejecuta la acción principal',
+    'pantalla principal muestra información',
+    'accede a las funcionalidades',
+  ];
+  const foundVague = vaguePatterns.filter(p => lower.includes(p));
+  if (foundVague.length > 0) {
+    penalty += foundVague.length * 2;
+    issues.push(`flujo vago: ${foundVague.length} patrón(es)`);
+  }
+
+  // Penalize excessive generic qualifiers
+  const genericQualifiers = (lower.match(/\b(?:principal|general|básico|genérico)\b/g) || []).length;
+  if (genericQualifiers > 3) {
+    penalty += 2;
+    issues.push(`${genericQualifiers} calificadores genéricos`);
+  }
+
+  // Penalize irrelevant domain tech suggestions that leaked through
+  const irrelevantTech = [
+    'hipaa', 'drag & drop', 'drag and drop', 'wysiwyg',
+    'syntax highlighting', 'git integration', 'terminal integrada',
+  ];
+  const foundIrrelevant = irrelevantTech.filter(t => lower.includes(t));
+  if (foundIrrelevant.length > 0) {
+    penalty += foundIrrelevant.length * 2;
+    issues.push(`tech posiblemente irrelevante: ${foundIrrelevant.join(', ')}`);
+  }
+
+  return { score: Math.min(penalty, 10), detail: issues.length > 0 ? issues.join('; ') : 'bajo riesgo de genericidad' };
+}
+
 // ── Observaciones, Checklist, Fortalezas/Debilidades ────────────────
 
 function generateObservations(score: EvaluationScore): EvaluationObservation[] {
@@ -445,6 +498,10 @@ function generateObservations(score: EvaluationScore): EvaluationObservation[] {
   if (score.domainSpecificity < 5) obs.push({ category: 'weakness', area: 'Especificidad', message: 'El diseño usa términos genéricos en lugar de conceptos del dominio.', impact: 'high' });
   if (score.mechanicSpecificity < 4) obs.push({ category: 'suggestion', area: 'Mecánicas', message: 'Agrega reglas de negocio, estados y transiciones específicas del dominio.', impact: 'medium' });
 
+  // V2.3 anti-hallucination
+  if (score.genericityPenalty > 5) obs.push({ category: 'weakness', area: 'Genericidad', message: 'El prompt contiene módulos o flujos genéricos/placeholder que no reflejan el dominio.', impact: 'high' });
+  if (score.genericityPenalty > 3) obs.push({ category: 'suggestion', area: 'Genericidad', message: 'Reemplaza términos genéricos por conceptos específicos del dominio del producto.', impact: 'medium' });
+
   return obs;
 }
 
@@ -462,6 +519,7 @@ function generateChecklist(score: EvaluationScore): { label: string; passed: boo
     { label: 'Orden estructura→función→estética', passed: score.methodologicalOrder >= 6, detail: `Orden: ${score.methodologicalOrder}/10` },
     { label: 'Consistencia interna', passed: score.internalConsistency >= 6, detail: `Consistencia: ${score.internalConsistency}/10` },
     { label: 'Completitud de secciones', passed: score.completeness >= 7, detail: `Completitud: ${score.completeness}/10` },
+    { label: 'Bajo riesgo de genericidad', passed: score.genericityPenalty <= 3, detail: `Riesgo: ${score.genericityPenalty}/10` },
   ];
 }
 
@@ -472,7 +530,7 @@ function computeOverall(s: Omit<EvaluationScore, 'overall'>): number {
     s.constraintCoverage, s.internalConsistency, s.flowQuality,
     s.functionalCoverage, s.domainSpecificity, s.mechanicSpecificity,
   ];
-  const negatives = [s.ambiguityRisk, s.monolithismRisk, s.contradictionRisk];
+  const negatives = [s.ambiguityRisk, s.monolithismRisk, s.contradictionRisk, s.genericityPenalty];
 
   const avgPositive = positives.reduce((a, b) => a + b, 0) / positives.length;
   const avgNegative = negatives.reduce((a, b) => a + b, 0) / negatives.length;
@@ -499,6 +557,7 @@ export function evaluatePromptV2(prompt: string): EvaluationResult {
   const fc = scoreFunctionalCoverage(prompt);
   const ds = scoreDomainSpecificity(prompt);
   const ms = scoreMechanicSpecificity(prompt);
+  const gp = scoreGenericityPenalty(prompt);
 
   const partial = {
     clarity: clarity.score,
@@ -517,6 +576,7 @@ export function evaluatePromptV2(prompt: string): EvaluationResult {
     functionalCoverage: fc.score,
     domainSpecificity: ds.score,
     mechanicSpecificity: ms.score,
+    genericityPenalty: gp.score,
   };
 
   const scoreResult: EvaluationScore = {

@@ -56,7 +56,7 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="px-6 py-4 border-t border-surface-700">
-        <p className="text-xs text-surface-600">Motor: Heurístico (Local)</p>
+        <p className="text-xs text-surface-600">Motor: Pipeline V2 (Local)</p>
       </div>
     </aside>
   );

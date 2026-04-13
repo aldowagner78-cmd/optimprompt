@@ -69,9 +69,9 @@ export function DashboardPage() {
       {/* Quick info */}
       <div className="mt-8 grid grid-cols-4 gap-4">
         {[
-          { label: 'Motor', value: 'Heurístico Local' },
-          { label: 'Evaluación', value: '7 métricas' },
-          { label: 'Variantes', value: '3 estilos' },
+          { label: 'Motor', value: 'Pipeline V2' },
+          { label: 'Evaluación', value: '13 métricas' },
+          { label: 'Variantes', value: '4 estilos' },
           { label: 'Historial', value: 'LocalStorage' },
         ].map(item => (
           <div key={item.label} className="text-center p-4 bg-surface-900 rounded-xl border border-surface-800">

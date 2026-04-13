@@ -12,13 +12,12 @@ export function OptimizePage() {
     evaluation,
     isLoading,
     error,
-    setOriginalPrompt,
+    submitPrompt,
     reset,
   } = useOptimizeWorkflowStore();
 
-  const handleSubmit = async (prompt: string) => {
-    setOriginalPrompt(prompt);
-    await useOptimizeWorkflowStore.getState().analyze();
+  const handleSubmit = (prompt: string) => {
+    submitPrompt(prompt);
   };
 
   return (

@@ -1,7 +1,13 @@
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, Badge } from '@/components/ui';
-import { getAvailableProviders } from '@/adapters/ai';
-import { Cpu, Database, Info } from 'lucide-react';
+import { getAvailableProviders, type ProviderStatus } from '@/adapters/ai';
+import { Cpu, Database } from 'lucide-react';
+
+const statusBadge: Record<ProviderStatus, { label: string; color: 'green' | 'yellow' | 'gray' }> = {
+  available: { label: 'Activo', color: 'green' },
+  'not-configured': { label: 'No configurado', color: 'yellow' },
+  planned: { label: 'Próximamente', color: 'gray' },
+};
 
 export function SettingsPage() {
   const providers = getAvailableProviders();
@@ -16,30 +22,21 @@ export function SettingsPage() {
       {/* AI Provider */}
       <Card title="Motor de IA" className="mb-6">
         <div className="space-y-4">
-          {providers.map(p => (
-            <div key={p.type} className="flex items-center justify-between p-4 bg-surface-800 rounded-lg border border-surface-700">
-              <div className="flex items-center gap-3">
-                <Cpu className="w-5 h-5 text-primary-400" />
-                <div>
-                  <p className="font-medium text-surface-100">{p.name}</p>
-                  <p className="text-xs text-surface-500">Procesamiento local sin costo</p>
+          {providers.map(p => {
+            const badge = statusBadge[p.status];
+            return (
+              <div key={p.type} className="flex items-center justify-between p-4 bg-surface-800 rounded-lg border border-surface-700">
+                <div className="flex items-center gap-3">
+                  <Cpu className="w-5 h-5 text-primary-400" />
+                  <div>
+                    <p className="font-medium text-surface-100">{p.name}</p>
+                    <p className="text-xs text-surface-500">{p.description}</p>
+                  </div>
                 </div>
+                <Badge label={badge.label} color={badge.color} />
               </div>
-              <Badge label="Activo" color="green" />
-            </div>
-          ))}
-
-          <div className="p-4 bg-surface-800/50 rounded-lg border border-dashed border-surface-700">
-            <div className="flex items-center gap-3">
-              <Info className="w-5 h-5 text-surface-500" />
-              <div>
-                <p className="text-sm text-surface-400">Próximamente: proveedores de IA externos</p>
-                <p className="text-xs text-surface-600 mt-0.5">
-                  La arquitectura está preparada para integraciones con proveedores de IA locales o remotos.
-                </p>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </Card>
 
@@ -59,9 +56,9 @@ export function SettingsPage() {
       {/* About */}
       <Card title="Acerca de" className="mt-6">
         <div className="space-y-2 text-sm text-surface-400">
-          <p><span className="text-surface-200">Versión:</span> 1.0.0 MVP</p>
+          <p><span className="text-surface-200">Versión:</span> 2.0.0</p>
           <p><span className="text-surface-200">Metodología:</span> Estructura → Función → Estética</p>
-          <p><span className="text-surface-200">Motor actual:</span> Heurístico (local, sin costo)</p>
+          <p><span className="text-surface-200">Motor actual:</span> Pipeline heurístico V2 (13 métricas, 4 variantes)</p>
         </div>
       </Card>
     </div>

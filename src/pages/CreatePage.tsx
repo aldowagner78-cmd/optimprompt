@@ -14,14 +14,13 @@ export function CreatePage() {
     evaluation,
     isLoading,
     error,
-    setIdea,
+    submitIdea,
     generatePrompt,
     reset,
   } = usePromptWorkflowStore();
 
-  const handleIdeaSubmit = async (idea: Parameters<typeof setIdea>[0]) => {
-    setIdea(idea);
-    await usePromptWorkflowStore.getState().analyzeIdea();
+  const handleIdeaSubmit = (idea: Parameters<typeof submitIdea>[0]) => {
+    submitIdea(idea);
   };
 
   return (

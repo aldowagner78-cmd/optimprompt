@@ -20,7 +20,7 @@ interface PromptWorkflowState {
   error: string | null;
   isLoading: boolean;
 
-  setIdea: (idea: PromptIdea) => void;
+  submitIdea: (idea: PromptIdea) => Promise<void>;
   analyzeIdea: () => Promise<void>;
   updateDesign: (design: DesignStructure) => void;
   generatePrompt: () => Promise<void>;
@@ -37,7 +37,11 @@ export const usePromptWorkflowStore = create<PromptWorkflowState>((set, get) => 
   error: null,
   isLoading: false,
 
-  setIdea: (idea) => set({ idea, stage: 'idle', error: null }),
+  submitIdea: async (idea) => {
+    set({ idea, stage: 'idle', error: null });
+    const { analyzeIdea } = get();
+    await analyzeIdea();
+  },
 
   analyzeIdea: async () => {
     const { idea } = get();

@@ -14,7 +14,7 @@ interface OptimizeWorkflowState {
   error: string | null;
   isLoading: boolean;
 
-  setOriginalPrompt: (prompt: string) => void;
+  submitPrompt: (prompt: string) => Promise<void>;
   analyze: () => Promise<void>;
   evaluateOptimized: () => Promise<void>;
   reset: () => void;
@@ -28,7 +28,11 @@ export const useOptimizeWorkflowStore = create<OptimizeWorkflowState>((set, get)
   error: null,
   isLoading: false,
 
-  setOriginalPrompt: (prompt) => set({ originalPrompt: prompt, stage: 'idle', error: null }),
+  submitPrompt: async (prompt) => {
+    set({ originalPrompt: prompt, stage: 'idle', error: null });
+    const { analyze } = get();
+    await analyze();
+  },
 
   analyze: async () => {
     const { originalPrompt } = get();

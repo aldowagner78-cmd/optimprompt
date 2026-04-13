@@ -14,11 +14,6 @@ function countListItems(text: string): number {
   return (text.match(/^[\s]*[-*]\s+/gm) ?? []).length + (text.match(/^\d+\.\s+/gm) ?? []).length;
 }
 
-function hasSection(text: string, ...keywords: string[]): boolean {
-  const lower = text.toLowerCase();
-  return keywords.some(k => lower.includes(k));
-}
-
 // ── Métricas individuales ───────────────────────────────────────────
 
 function scoreClarity(prompt: string): { score: number; detail: string } {

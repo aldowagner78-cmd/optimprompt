@@ -1,8 +1,8 @@
-# Arquitectura — OptimPrompt
+# Arquitectura — OptimPrompt V2
 
 ## Visión General
 
-OptimPrompt sigue una **arquitectura modular por features** con capas desacopladas, diseñada para evolucionar sin romper la base existente.
+OptimPrompt sigue una **arquitectura modular por features** con pipeline de procesamiento desacoplado, diseñada para evolucionar sin romper la base existente.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -17,14 +17,17 @@ OptimPrompt sigue una **arquitectura modular por features** con capas desacoplad
 │  prompt-workflow | optimize-workflow | history    │
 ├─────────────────────────────────────────────────┤
 │              Adapters / Services                 │
-│  AI Provider (interface) | History Storage       │
+│  AI Provider (factory + status) | History Storage│
 ├─────────────────────────────────────────────────┤
-│                 Lib (Pure Logic)                  │
-│  text-analysis | design-templates | prompt-builder│
-│  prompt-evaluator | prompt-optimizer              │
+│            Pipeline V2 (Pure Logic)              │
+│  intent-parser | constraint-extractor            │
+│  entity-extractor | project-classifier           │
+│  structure-designer | prompt-assembler            │
+│  prompt-refiner | evaluator | analyze (orchestr.) │
 ├─────────────────────────────────────────────────┤
 │                    Types                         │
-│  prompt | history | ai-provider                  │
+│  prompt | intent | constraint | entity | analysis │
+│  history | ai-provider                           │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -34,53 +37,62 @@ OptimPrompt sigue una **arquitectura modular por features** con capas desacoplad
 
 Tipos e interfaces centrales. No contienen lógica. Son el contrato entre capas.
 
-- `PromptIdea`: Input del usuario
+- `PromptIdea`: Input del usuario (idea textual)
 - `DesignStructure`: Resultado del análisis estructural
-- `PromptResult`: Prompt maestro + variantes
-- `EvaluationResult`: Scores y checklist
-- `OptimizationResult`: Observaciones + prompt mejorado
+- `PromptResult`: Prompt maestro + 4 variantes
+- `EvaluationScore`: 13 métricas + overall score
+- `OptimizationResult`: Observaciones + prompt mejorado + changesSummary + preservedIntent
 - `AIProvider`: Interfaz que deben implementar todos los motores de IA
+- `ParsedIntent`: Intención parseada (goal, targetUser, actions, domain, complexity)
+- `ExtractedConstraint`: Restricción extraída (7 categorías)
+- `ExtractedEntity`: Entidad extraída con relaciones
+- `AnalysisResult`: Resultado completo del pipeline de análisis
 - `HistoryEntry`: Entrada del historial
 
-### 2. Lib (`src/lib/`)
+### 2. Pipeline V2 (`src/lib/pipeline/`)
 
-Lógica pura del motor, sin dependencias de React ni de estado.
+Motor central — 9 módulos de lógica pura, sin dependencias de React ni estado.
 
-- **text-analysis**: Detección de tipo de proyecto, extracción de frases clave
-- **design-templates**: Templates de módulos, flujos, decisiones técnicas por tipo de proyecto
-- **prompt-builder**: Construcción del prompt maestro y sus 3 variantes
-- **prompt-evaluator**: Evaluación heurística con 7 métricas
-- **prompt-optimizer**: Detección de problemas y reconstrucción del prompt
+| Módulo | Función |
+|--------|---------|
+| **intent-parser** | Extrae goal, targetUser, actions, domain, complexity del texto |
+| **constraint-extractor** | 40+ patrones regex en 7 categorías (técnicas, rendimiento, seguridad, UX, negocio, infraestructura, compatibilidad) |
+| **entity-extractor** | 18 patrones de entidades con detección de relaciones |
+| **project-classifier** | Clasificación ponderada del tipo de proyecto con score de confianza |
+| **structure-designer** | Genera diseño (módulos, flujos, entidades, decisiones) a partir del análisis |
+| **prompt-assembler** | Construye prompt maestro + 4 variantes (resumida, estricta, modular, creativa) |
+| **prompt-refiner** | 11 reglas de detección de problemas + reescritura inteligente |
+| **evaluator** | 13 métricas dimensionales independientes |
+| **analyze** | Orquestador que conecta los módulos en secuencia |
 
 ### 3. Adapters (`src/adapters/`)
 
-Implementaciones intercambiables de proveedores.
+Implementaciones intercambiables de proveedores con metadata de status.
 
-- **HeuristicProvider**: Motor local que usa la lógica de `lib/` para analizar, generar, optimizar y evaluar
-- **Factory**: `getAIProvider()` / `setAIProvider()` para intercambiar proveedores
+- **HeuristicProvider**: Motor principal — consume el pipeline V2 completo
+- **OllamaProvider**: Stub para integración con servidor Ollama local
+- **BrowserLocalProvider**: Stub para inferencia en navegador (WebLLM/Transformers.js)
+- **Factory**: `getAIProvider()` / `setAIProvider()` / `getAvailableProviders()` con `ProviderStatus`
 
-**Para agregar un proveedor externo** (ej: Ollama, API local):
-1. Crear una clase que implemente `AIProvider`
-2. Registrarla en el factory
-3. La UI mostrará automáticamente las opciones disponibles
+Cada proveedor reporta: type, name, description, status (`available` | `not-configured` | `planned`).
 
 ### 4. Services (`src/services/`)
 
-Servicios de infraestructura (persistencia, etc).
+Servicios de infraestructura.
 
-- **history-storage**: CRUD sobre LocalStorage con límite de 50 entradas
+- **history-storage**: CRUD sobre LocalStorage con límite de entradas
 
 ### 5. Stores (`src/stores/`)
 
-Estado global con Zustand. Un store por flujo principal.
+Estado global con Zustand. Un store por flujo principal. Las acciones de alto nivel encapsulan la lógica de negocio.
 
-- **prompt-workflow-store**: Flujo completo idea → análisis → diseño → generación → evaluación
-- **optimize-workflow-store**: Flujo optimización de prompts existentes
+- **prompt-workflow-store**: `submitIdea()` → análisis → diseño → generación → evaluación
+- **optimize-workflow-store**: `submitPrompt()` → análisis → optimización → evaluación
 - **history-store**: Gestión del historial
 
 ### 6. Components (`src/components/`)
 
-- **ui/**: Componentes primitivos reutilizables (Button, Card, TextArea, Select, Badge, ScoreMeter, CopyBlock, LoadingSpinner)
+- **ui/**: Primitivos reutilizables (Button, Card, TextArea, Select, Badge, ScoreMeter, CopyBlock, LoadingSpinner)
 - **layout/**: AppLayout, Sidebar, PageHeader
 
 ### 7. Features (`src/features/`)
@@ -94,7 +106,7 @@ Componentes de dominio agrupados por funcionalidad:
 
 ### 8. Pages (`src/pages/`)
 
-Orquestadores de features. Cada página conecta stores con features.
+Orquestadores de features. Cada página conecta stores con features. No contienen lógica de negocio directa — delegan en acciones del store.
 
 ## Flujo Principal: Crear Prompt
 
@@ -105,46 +117,71 @@ Usuario escribe idea
   IdeaForm (prompt-intake)
        │
        ▼
-  store.analyzeIdea()
-       │
-       ▼
-  HeuristicProvider.analyzeIdea()
-       │ Usa: text-analysis, design-templates
-       ▼
+  store.submitIdea(idea)  ──────────────────────┐
+       │                                         │
+       ▼                                         │
+  HeuristicProvider.analyzeIdea()                │
+       │                                         │
+       ├─→ intent-parser.parseIntent()           │
+       ├─→ constraint-extractor.extract()        │ Pipeline V2
+       ├─→ entity-extractor.extract()            │
+       ├─→ project-classifier.classify()         │
+       └─→ analyze() [orchestrator]              │
+       │                                         │
+       ▼                                         │
+  structure-designer.designStructure()           │
+       │                                         │
+       ▼                                    ─────┘
   DesignPanel muestra: objetivo, módulos, flujo, entidades
        │
        ▼
   store.generatePrompt()
        │
        ▼
-  HeuristicProvider.generatePrompt()
-       │ Usa: prompt-builder
+  prompt-assembler.assemble()
+       │
        ▼
-  ResultPanel: prompt maestro + 3 variantes + evaluación + checklist
+  ResultPanel: prompt maestro + 4 variantes + evaluación (13 métricas)
        │
        ▼
   Se guarda automáticamente en historial (LocalStorage)
+```
+
+## Flujo: Optimizar Prompt
+
+```
+Usuario pega prompt existente
+       │
+       ▼
+  store.submitPrompt(prompt)
+       │
+       ▼
+  prompt-refiner.refine()
+       │ 11 reglas de detección
+       │ Reescritura inteligente
+       ▼
+  evaluator.evaluate() [antes y después]
+       │ 13 métricas comparadas
+       ▼
+  OptimizeResultPanel: antes/después + changesSummary + preservedIntent
 ```
 
 ## Decisiones Técnicas
 
 | Decisión | Justificación |
 |----------|--------------|
-| **Zustand** sobre Redux | Más simple, menos boilerplate, stores independientes |
-| **Tailwind CSS 4** | Utilidades, consistencia, zero-runtime, integración Vite nativa |
-| **Lucide React** | Iconos limpios, tree-shakeable, consistentes |
-| **UUID v4** | IDs de historial sin colisiones |
-| **LocalStorage** | Suficiente para MVP, migrable a IndexedDB si crece |
-| **Motor heurístico** | Funciona sin APIs externas, base para integrar IA real |
-| **Interface AIProvider** | Desacopla totalmente la app del motor, permite swap fácil |
+| **Pipeline modular** | Cada módulo es independiente, testeable y reemplazable |
+| **Zustand** | Más simple que Redux, stores separados por flujo |
+| **Tailwind CSS 4** | Utilidades, zero-runtime, integración Vite nativa |
+| **HashRouter** | Compatibilidad con GitHub Pages (paths estáticos) |
+| **Factory + Status** | Los proveedores se registran con metadata de disponibilidad |
+| **Acciones encapsuladas** | `submitIdea`/`submitPrompt` evitan orquestación en Pages |
+| **LocalStorage** | Suficiente para V2, migrable a IndexedDB si crece |
 
-## Escalabilidad
+## Deploy
 
-La arquitectura está preparada para:
-
-- Múltiples proveedores de IA simultáneos
-- Migración a IndexedDB o backend
-- Nuevos tipos de prompts (no solo apps)
-- Testing unitario de la capa `lib/` (lógica pura)
-- Internacionalización
-- Temas / personalización visual
+- Rama: `main`
+- CI: GitHub Actions (`.github/workflows/deploy.yml`)
+- Target: GitHub Pages
+- SPA fallback: `404.html` copiado del `index.html` en build
+- Router: HashRouter para evitar problemas de rutas

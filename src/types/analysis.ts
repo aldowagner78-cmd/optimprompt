@@ -5,12 +5,14 @@ import type { ProjectType } from './prompt';
 import type { CoreMechanic } from './mechanics';
 
 export interface AnalysisResult {
+  rawInput: string;
   intent: ParsedIntent;
   constraints: ExtractedConstraint[];
   entities: ExtractedEntity[];
   projectType: ProjectType;
   confidence: number;
   keyPhrases: string[];
+  keyConcepts: string[];
   suggestedTechnologies: string[];
   detectedPatterns: string[];
   mechanics: CoreMechanic[];

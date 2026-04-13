@@ -3,7 +3,7 @@ import { parseIntent } from './intent-parser';
 import { extractConstraints } from './constraint-extractor';
 import { extractEntities } from './entity-extractor';
 import { classifyProject } from './project-classifier';
-import { extractCoreMechanics, extractPlatformConstraints } from './core-mechanics-extractor';
+import { extractCoreMechanics, extractPlatformConstraints, extractKeyConcepts } from './core-mechanics-extractor';
 
 const TECH_SUGGESTIONS: Record<string, string[]> = {
   'e-commerce': ['Pasarela de pagos (Stripe/MercadoPago)', 'Carrito con estado persistente', 'Catálogo con filtros y búsqueda'],
@@ -40,6 +40,9 @@ export function analyzeInput(rawInput: string, hintProjectType?: ProjectType): A
   const mechanics = extractCoreMechanics(rawInput);
   const platformConstraints = extractPlatformConstraints(rawInput);
 
+  // V2.2: Extract key concepts from FULL input (not truncated goal)
+  const keyConcepts = extractKeyConcepts(rawInput);
+
   // Extract key phrases (improved)
   const keyPhrases = rawInput
     .split(/[.;,\n]+/)
@@ -56,12 +59,14 @@ export function analyzeInput(rawInput: string, hintProjectType?: ProjectType): A
   const suggestedTechnologies = [...domainTechs];
 
   return {
+    rawInput,
     intent,
     constraints,
     entities,
     projectType,
     confidence,
     keyPhrases,
+    keyConcepts,
     suggestedTechnologies,
     detectedPatterns,
     mechanics,

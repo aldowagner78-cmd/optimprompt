@@ -77,28 +77,57 @@ function detectComplexity(input: string, actions: string[]): 'simple' | 'moderat
 }
 
 function extractGoal(input: string): string {
-  const sentences = input.split(/[.\n]+/).map(s => s.trim()).filter(Boolean);
-  if (sentences.length === 0) return input.trim();
+  const cleaned = input.trim().replace(/\s+/g, ' ');
 
-  // First sentence or the longest sentence usually contains the main goal
-  const first = sentences[0];
-  const longest = sentences.reduce((a, b) => a.length > b.length ? a : b);
-
-  // If first sentence is very short, combine first two
-  if (first.split(/\s+/).length < 5 && sentences.length > 1) {
-    return `${first}. ${sentences[1]}`;
+  // For short-to-medium inputs (≤400 chars), use the FULL text as goal.
+  // Most user ideas are 1-3 sentences — truncating loses critical info.
+  if (cleaned.length <= 400) {
+    return cleaned;
   }
 
-  // If first sentence is reasonable, use it; if longest is much more descriptive, use that
-  return first.length > longest.length * 0.5 ? first : longest;
+  // For longer inputs, combine sentences up to ~400 chars
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+  let goal = '';
+  for (const s of sentences) {
+    if (goal.length + s.length > 400) break;
+    goal += (goal ? ' ' : '') + s.trim();
+  }
+
+  return goal || sentences[0] || cleaned.slice(0, 400);
+}
+
+function extractPrimaryActionPhrase(input: string): string {
+  // Try to extract verb + object from natural Spanish patterns
+  const patterns = [
+    // "una app para VERB..." | "una plataforma que VERB..."
+    /(?:app|aplicación|plataforma|sistema|herramienta|software)\s+(?:para|que)\s+(\w+(?:ar|er|ir)\s+.{3,80}?)(?:\s*[.,;]|\s+y\s+que)/i,
+    // "para VERB..." at sentence start
+    /^(?:para|que\s+permita|que\s+pueda)\s+(\w+(?:ar|er|ir)\s+.{3,60}?)(?:\s*[.,;]|$)/im,
+  ];
+
+  for (const p of patterns) {
+    const m = input.match(p);
+    if (m) return m[1].trim();
+  }
+
+  // Fallback: first detected action verb
+  const lower = input.toLowerCase();
+  return ACTION_VERBS.find(v => lower.includes(v)) ?? 'desarrollar';
 }
 
 function extractExpectedOutcome(input: string): string {
-  // Look for explicit outcome markers
+  // Look for explicit outcome markers — improved for natural Spanish
   const outcomePatterns = [
-    /(?:para|con el fin de|con el objetivo de|de modo que|de manera que)\s+(.{10,80}?)(?:\.|,|;|$)/i,
-    /(?:el resultado|el objetivo|la meta|el propósito)\s+(?:es|será|debería ser)\s+(.{10,60}?)(?:\.|,|;|$)/i,
-    /(?:que permita|que logre|que consiga|que facilite)\s+(.{10,60}?)(?:\.|,|;|$)/i,
+    // "la idea es que..." / "la idea es..." — very common in natural Spanish
+    /la\s+idea\s+es\s+(?:que\s+)?(.{10,120}?)(?:\.|$)/i,
+    // "para que..." / "de modo que..."
+    /(?:para\s+que|con\s+el\s+fin\s+de|con\s+el\s+objetivo\s+de|de\s+modo\s+que|de\s+manera\s+que)\s+(.{10,100}?)(?:\.|,|;|$)/i,
+    // "que permita..." / "que logre..."
+    /(?:que\s+permita|que\s+logre|que\s+consiga|que\s+facilite)\s+(.{10,80}?)(?:\.|,|;|$)/i,
+    // "y que después..." / "y que luego..."
+    /y\s+que\s+(?:después|luego|finalmente|además)\s+(?:pueda\s+)?(.{10,80}?)(?:\.|,|;|$)/i,
+    // "el resultado es..." / "el objetivo es..."
+    /(?:el\s+resultado|el\s+objetivo|la\s+meta)\s+(?:es|será|debería\s+ser)\s+(.{10,80}?)(?:\.|,|;|$)/i,
   ];
 
   for (const pattern of outcomePatterns) {
@@ -106,7 +135,7 @@ function extractExpectedOutcome(input: string): string {
     if (match) return match[1].trim();
   }
 
-  // Fallback: derive from main goal
+  // Fallback: last meaningful sentence
   const sentences = input.split(/[.\n]+/).map(s => s.trim()).filter(s => s.length > 10);
   if (sentences.length > 1) {
     return sentences[sentences.length - 1];
@@ -117,14 +146,14 @@ function extractExpectedOutcome(input: string): string {
 
 export function parseIntent(input: string): ParsedIntent {
   const actions = extractActionVerbs(input);
-  const primaryAction = actions[0] ?? 'desarrollar';
+  const primaryAction = extractPrimaryActionPhrase(input);
   const secondaryActions = actions.slice(1);
   const domain = detectDomain(input);
   const targetUser = detectTargetUser(input);
   const complexity = detectComplexity(input, actions);
   const goal = extractGoal(input);
   const systemType = detectSystemType(input);
-  const dominantVerb = primaryAction;
+  const dominantVerb = actions[0] ?? 'desarrollar';
   const expectedOutcome = extractExpectedOutcome(input);
 
   return {

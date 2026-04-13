@@ -19,12 +19,13 @@ const MECHANIC_RULES: MechanicRule[] = [
     label: 'Control de uso / tiempo',
     category: 'control',
     patterns: [
-      /control(?:ar)?\s+(?:de\s+)?(?:uso|tiempo|acceso|pantalla)/i,
-      /limit(?:ar|e)\s+(?:el\s+)?(?:tiempo|uso|acceso|minutos|horas)/i,
-      /bloque(?:ar|o)\s+(?:apps?|aplicacion|redes?|acceso)/i,
-      /restringir\s+(?:el\s+)?(?:uso|acceso|tiempo)/i,
+      /control\w*\s+(?:(?:el|la|del|de|su)\s+)*(?:uso|tiempo|acceso|pantalla)/i,
+      /limit\w*\s+(?:(?:el|la|del|de|su)\s+)*(?:tiempo|uso|acceso|minutos|horas)/i,
+      /bloque\w*\s+(?:(?:las?|los?|el|su)\s+)*(?:apps?|aplicacion|redes?|acceso)/i,
+      /restringi\w*\s+(?:(?:el|la|del|de|su)\s+)*(?:uso|acceso|tiempo)/i,
       /tiempo\s+(?:de\s+)?(?:uso|pantalla|screen[\s-]?time)/i,
       /screen[\s-]?time/i,
+      /reduci\w*\s+(?:(?:el|la|su)\s+)*(?:uso|tiempo|consumo)/i,
     ],
     subMechanics: ['temporizador activo', 'bloqueo por tiempo excedido', 'conteo de minutos por app', 'reglas de horario permitido'],
   },
@@ -59,8 +60,10 @@ const MECHANIC_RULES: MechanicRule[] = [
     patterns: [
       /punt(?:o|os|uación)/i,
       /crédito|moneda\s+virtual/i,
-      /(?:ganar|otorgar|acumular|sumar)\s+(?:puntos|créditos|monedas|tokens)/i,
+      /gan\w*\s+(?:.*?\s+)?(?:puntos|créditos|monedas|tokens)/i,
+      /(?:otorg|acumul|sum)\w*\s+(?:puntos|créditos|monedas|tokens)/i,
       /recompensa|premio/i,
+      /incentiv\w*\s+(?:.*?\s+)?(?:hábito|tarea|uso|actividad)/i,
     ],
     subMechanics: ['saldo de puntos', 'historial de transacciones', 'reglas de acumulación', 'tipos de recompensa'],
   },
@@ -71,8 +74,10 @@ const MECHANIC_RULES: MechanicRule[] = [
     patterns: [
       /canje(?:ar)?/i,
       /redimir|canjear\s+(?:puntos|créditos|recompensas)/i,
-      /intercambiar?\s+(?:puntos|créditos)/i,
+      /intercambi\w*\s+(?:puntos|créditos)/i,
+      /cambi\w*\s+(?:.*?\s+)?(?:puntos|créditos)\s+(?:por|para)/i,
       /(?:puntos|créditos)\s+(?:por|para)\s+/i,
+      /cambi\w*\s+(?:esos?|los?|sus?)\s+(?:puntos|créditos)/i,
     ],
     subMechanics: ['catálogo de canjes', 'costo por item', 'validación de saldo', 'historial de canjes'],
   },
@@ -108,10 +113,12 @@ const MECHANIC_RULES: MechanicRule[] = [
     label: 'Validación de tareas / actividades',
     category: 'validation',
     patterns: [
-      /validar?\s+(?:tarea|actividad|cumplimiento|entrega)/i,
-      /verificar?\s+(?:tarea|actividad|cumplimiento)/i,
-      /comprobar?\s+(?:que|si)\s+(?:se\s+)?(?:hizo|completó|realizó)/i,
-      /tarea(?:s)?\s+(?:realizad|complet|cumplid)/i,
+      /valid\w*\s+(?:tarea|actividad|cumplimiento|entrega)/i,
+      /verific\w*\s+(?:tarea|actividad|cumplimiento)/i,
+      /comprob\w*\s+(?:que|si)\s+(?:se\s+)?(?:hizo|completó|realizó)/i,
+      /tarea(?:s)?\s+(?:realizad|complet|cumplid|saludable|diaria|asignad)/i,
+      /(?:hac|complet|realiz|cumpl)\w*\s+(?:.*?\s+)?tareas?/i,
+      /por\s+(?:hacer|completar|realizar)\s+/i,
     ],
     subMechanics: ['criterios de completitud', 'evidencia requerida', 'aprobación manual/auto', 'estados de tarea'],
   },
@@ -150,6 +157,8 @@ const MECHANIC_RULES: MechanicRule[] = [
       /rutina\s+(?:diaria|semanal|saludable)/i,
       /(?:ejercicio|actividad)\s+(?:física|diaria)/i,
       /bienestar|salud\s+mental/i,
+      /incentiv\w*\s+(?:.*?)?hábito/i,
+      /tarea\w*\s+saludable/i,
     ],
     subMechanics: ['registro diario', 'frecuencia objetivo', 'streak/rachas', 'categorías de hábitos', 'recordatorios'],
   },
@@ -473,7 +482,27 @@ export function extractCoreMechanics(input: string): CoreMechanic[] {
     }
   }
 
-  return mechanics;
+  // Post-filter: remove context-dependent false positives
+  return filterFalsePositives(mechanics, input);
+}
+
+/**
+ * Remove mechanics that are false positives based on surrounding context.
+ * E.g., "redes sociales" in a usage-control app is NOT a social-interaction feature.
+ */
+function filterFalsePositives(mechanics: CoreMechanic[], input: string): CoreMechanic[] {
+  const mechIds = new Set(mechanics.map(m => m.id));
+
+  return mechanics.filter(mech => {
+    // social-interaction is false positive when context is controlling/limiting social media
+    if (mech.id === 'social-interaction' && mechIds.has('usage-control')) {
+      const controlSocialContext = /(?:control|limit|monitor|reduci|restringi|bloque)\w*.{0,30}(?:redes?\s+social|uso\s+de\s+redes)/i;
+      const socialAsTarget = /(?:tiempo|uso|acceso|consumo)\s+(?:de\s+)?(?:redes?\s+social)/i;
+      if (controlSocialContext.test(input) || socialAsTarget.test(input)) return false;
+    }
+
+    return true;
+  });
 }
 
 export function extractPlatformConstraints(input: string): string[] {

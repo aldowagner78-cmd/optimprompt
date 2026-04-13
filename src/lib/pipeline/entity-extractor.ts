@@ -26,6 +26,11 @@ const ENTITY_PATTERNS: EntityPattern[] = [
   { keywords: ['evento', 'event', 'cita', 'appointment'], name: 'Evento', description: 'Evento o cita agendada', defaultAttributes: ['id', 'título', 'fecha', 'hora', 'ubicación', 'participantes'] },
   { keywords: ['dashboard', 'panel', 'tablero'], name: 'Dashboard', description: 'Panel de visualización de datos', defaultAttributes: ['id', 'widgets', 'layout', 'filtros', 'propietario'] },
   { keywords: ['prompt'], name: 'Prompt', description: 'Prompt de instrucciones', defaultAttributes: ['id', 'contenido', 'tipo', 'versión', 'evaluación'] },
+  { keywords: ['punto', 'puntos', 'crédito', 'créditos'], name: 'Punto', description: 'Unidad de puntos/créditos del sistema de recompensas', defaultAttributes: ['id', 'usuario', 'cantidad', 'tipo', 'fecha', 'origen'] },
+  { keywords: ['hábito', 'hábitos', 'rutina'], name: 'Hábito', description: 'Hábito o rutina a seguir', defaultAttributes: ['id', 'nombre', 'frecuencia', 'categoría', 'estado', 'streak'] },
+  { keywords: ['recompensa', 'premio', 'canje'], name: 'Recompensa', description: 'Recompensa canjeable por puntos', defaultAttributes: ['id', 'nombre', 'costo', 'descripción', 'disponibilidad', 'tipo'] },
+  { keywords: ['progreso', 'avance', 'estadística'], name: 'Progreso', description: 'Registro de progreso del usuario', defaultAttributes: ['id', 'usuario', 'métrica', 'valor', 'fecha', 'período'] },
+  { keywords: ['límite', 'restricción', 'regla'], name: 'Regla', description: 'Regla o restricción configurable del sistema', defaultAttributes: ['id', 'tipo', 'valor', 'condición', 'acción', 'activa'] },
 ];
 
 function detectRelations(entities: ExtractedEntity[]): ExtractedEntity[] {
@@ -69,16 +74,6 @@ export function extractEntities(input: string): ExtractedEntity[] {
         relations: [],
       });
     }
-  }
-
-  // Always include at least a core entity
-  if (matched.length === 0) {
-    matched.push({
-      name: 'Entidad Principal',
-      description: 'Entidad central del dominio',
-      attributes: ['id', 'nombre', 'descripción', 'estado', 'fechaCreación'],
-      relations: [],
-    });
   }
 
   return detectRelations(matched);

@@ -1,17 +1,26 @@
 import type { AnalysisResult, DesignStructure, SuggestedModule, CoreMechanic } from '@/types';
 import { validateCoverage, generateMissingModules } from './coverage-validator';
-import { extractKeyConcepts } from './core-mechanics-extractor';
 
-// ── Minimal base modules (only infra, not domain) ──────────────────
+// ── Forbidden placeholder names — HARD BLOCK ───────────────────────
+
+const FORBIDDEN_MODULE_NAMES = [
+  'core feature', 'funcionalidad principal', 'feature principal',
+  'módulo principal', 'main feature', 'entidad principal',
+];
+
+function isForbiddenName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return FORBIDDEN_MODULE_NAMES.some(f => lower.includes(f));
+}
+
+// ── Minimal infra modules (ONLY added at the end, not at the top) ──
 
 const INFRA_MODULES: Record<string, SuggestedModule[]> = {
   'web-app': [
     { name: 'Auth', responsibility: 'Autenticación y autorización de usuarios', dependencies: [] },
-    { name: 'Layout', responsibility: 'Estructura visual principal, navegación y shell', dependencies: [] },
   ],
   'mobile-app': [
     { name: 'Auth', responsibility: 'Autenticación y sesión del usuario', dependencies: [] },
-    { name: 'Navigation', responsibility: 'Navegación entre pantallas', dependencies: [] },
   ],
   'api': [
     { name: 'Routes', responsibility: 'Definición de endpoints y rutas', dependencies: [] },
@@ -19,15 +28,11 @@ const INFRA_MODULES: Record<string, SuggestedModule[]> = {
   ],
   'cli': [
     { name: 'Commands', responsibility: 'Definición de comandos disponibles', dependencies: [] },
-    { name: 'Output', responsibility: 'Formateo y presentación de resultados', dependencies: [] },
   ],
   'library': [
     { name: 'Core', responsibility: 'API pública principal', dependencies: [] },
-    { name: 'Types', responsibility: 'Tipos e interfaces exportados', dependencies: [] },
   ],
   'fullstack': [
-    { name: 'Frontend - Layout', responsibility: 'Shell visual y navegación', dependencies: [] },
-    { name: 'Backend - API', responsibility: 'Endpoints y controladores', dependencies: [] },
     { name: 'Auth', responsibility: 'Autenticación end-to-end', dependencies: [] },
   ],
   'other': [],
@@ -122,19 +127,11 @@ function deriveFlowFromMechanics(analysis: AnalysisResult): string[] {
   const mechanics = analysis.mechanics;
   const steps: string[] = [];
 
-  // Start with auth/entry
-  if (analysis.projectType === 'mobile-app') {
-    steps.push('Usuario abre la aplicación');
-    steps.push('Se autentica o registra');
-  } else if (analysis.projectType === 'api') {
-    steps.push('Cliente envía request autenticado');
-  } else {
-    steps.push('Usuario accede a la aplicación');
-    steps.push('Se autentica (si aplica)');
-  }
+  // DO NOT start with "abre app" or "login" — those are infra, not domain.
+  // Start directly with the first functional action.
 
-  // Generate steps from mechanics — ordered by category
-  const categoryOrder: string[] = ['interaction', 'control', 'validation', 'reward', 'progress', 'restriction'];
+  // Generate steps from mechanics — ordered by logical flow
+  const categoryOrder: string[] = ['control', 'interaction', 'validation', 'reward', 'progress', 'restriction'];
   const sortedMechanics = [...mechanics].sort((a, b) => {
     return categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
   });
@@ -149,14 +146,19 @@ function deriveFlowFromMechanics(analysis: AnalysisResult): string[] {
     }
   }
 
-  // If we still have very few steps, add generic completion
-  if (steps.length < 4) {
-    steps.push(`Ejecuta la acción principal: ${analysis.intent.primaryAction}`);
-    steps.push('Recibe feedback del resultado');
+  // If we still have very few steps, add action-based steps
+  if (steps.length < 3) {
+    if (analysis.intent.secondaryActions.length > 0) {
+      for (const action of analysis.intent.secondaryActions.slice(0, 3)) {
+        steps.push(`${action.charAt(0).toUpperCase() + action.slice(1)} según el flujo del dominio`);
+      }
+    } else {
+      steps.push(`Ejecuta la acción principal del sistema`);
+    }
   }
 
-  // Add closing step
-  steps.push('Sistema registra la actividad y actualiza métricas');
+  // Closing step
+  steps.push('Sistema actualiza métricas, progreso y registra la actividad');
 
   return steps;
 }
@@ -326,31 +328,36 @@ function deriveArchitectureConstraints(analysis: AnalysisResult, modules: Sugges
 export function designStructure(analysis: AnalysisResult, detailedMode: boolean): DesignStructure {
   const hasMechanics = analysis.mechanics.length > 0;
 
-  // 1. Start with minimal infra modules
-  const infraModules = INFRA_MODULES[analysis.projectType] ?? [];
+  // === PRIORITY ORDER: domain first, infra last ===
 
-  // 2. Generate domain modules from mechanics (primary source)
+  // 1. Generate domain modules from mechanics (PRIMARY source)
   const mechanicModules = generateModulesFromMechanics(analysis.mechanics);
 
-  // 3. Combine infra + mechanic modules
-  let modules = [...infraModules, ...mechanicModules];
-  const usedNames = new Set(modules.map(m => m.name.toLowerCase()));
-
-  // 4. Add entity-derived modules (if not already covered by mechanics)
+  // 2. Add entity-derived modules (if not already covered by mechanics)
+  const usedNames = new Set(mechanicModules.map(m => m.name.toLowerCase()));
   const entityModules = generateModulesFromEntities(analysis, usedNames);
-  modules = [...modules, ...entityModules];
 
-  // 5. Add pattern-detected modules
+  // 3. Add pattern-detected modules
+  for (const m of entityModules) usedNames.add(m.name.toLowerCase());
   const patternModules = generateModulesFromPatterns(analysis.detectedPatterns, usedNames);
-  modules = [...modules, ...patternModules];
+
+  // 4. LAST: add infra modules (Auth, etc.) — only if not redundant
+  const infraModules = (INFRA_MODULES[analysis.projectType] ?? [])
+    .filter(m => !usedNames.has(m.name.toLowerCase()));
+
+  // Combine: DOMAIN FIRST, infra last
+  let modules = [...mechanicModules, ...entityModules, ...patternModules, ...infraModules];
+
+  // 5. HARD BLOCK: remove any forbidden placeholder names
+  modules = modules.filter(m => !isForbiddenName(m.name));
 
   // 6. Generate flow from mechanics (not from templates)
-  const mainFlow = hasMechanics
+  let mainFlow = hasMechanics
     ? deriveFlowFromMechanics(analysis)
     : deriveGenericFlow(analysis);
 
   // 7. Validate coverage and auto-correct if needed
-  const keyConcepts = extractKeyConcepts(analysis.intent.goal);
+  const keyConcepts = analysis.keyConcepts;
   const entities = analysis.entities.map(e => {
     const attrs = detailedMode ? ` (${e.attributes.slice(0, 4).join(', ')})` : '';
     return `${e.name}${attrs}`;
@@ -366,12 +373,38 @@ export function designStructure(analysis: AnalysisResult, detailedMode: boolean)
     if (missingMechanics.length > 0) {
       const extraModules = generateMissingModules(missingMechanics, modules);
       modules = [...modules, ...extraModules];
-      // Re-validate after correction
       coverage = validateCoverage(keyConcepts, analysis.mechanics, modules, mainFlow, entities);
     }
   }
 
-  // 8. Build tech decisions and constraints
+  // 8. AUTO-REGENERATION GUARD: if output is still too generic, force rebuild
+  if (hasMechanics && isOutputTooGeneric(modules, mainFlow, analysis)) {
+    // Strip infra and rebuild from mechanics only
+    modules = generateModulesFromMechanics(analysis.mechanics);
+    modules = modules.filter(m => !isForbiddenName(m.name));
+
+    // Rebuild flow from mechanics only
+    mainFlow = deriveFlowFromMechanics(analysis);
+
+    // Re-validate coverage
+    coverage = validateCoverage(keyConcepts, analysis.mechanics, modules, mainFlow, entities);
+    if (coverage.missingConcepts.length > 0) {
+      const missingMechanics = analysis.mechanics.filter(m =>
+        coverage.missingConcepts.includes(m.label)
+      );
+      const extraModules = generateMissingModules(missingMechanics, modules);
+      modules = [...modules, ...extraModules];
+      coverage = validateCoverage(keyConcepts, analysis.mechanics, modules, mainFlow, entities);
+    }
+
+    // Add infra at the very end
+    const finalUsed = new Set(modules.map(m => m.name.toLowerCase()));
+    const finalInfra = (INFRA_MODULES[analysis.projectType] ?? [])
+      .filter(m => !finalUsed.has(m.name.toLowerCase()));
+    modules = [...modules, ...finalInfra];
+  }
+
+  // 9. Build tech decisions and constraints
   const techDecisions = deriveTechDecisions(analysis);
   const architectureConstraints = deriveArchitectureConstraints(analysis, modules);
 
@@ -384,7 +417,7 @@ export function designStructure(analysis: AnalysisResult, detailedMode: boolean)
       .map(c => c.description),
   };
 
-  // 9. Build system core description
+  // 10. Build system core description
   const systemCore = analysis.intent.systemType !== 'aplicación general'
     ? analysis.intent.systemType
     : (hasMechanics
@@ -407,4 +440,37 @@ export function designStructure(analysis: AnalysisResult, detailedMode: boolean)
     mechanicsSummary,
     coverageWarnings: coverage.warnings,
   };
+}
+
+// ── Genericness detection — triggers auto-regeneration ──────────────
+
+function isOutputTooGeneric(
+  modules: SuggestedModule[],
+  mainFlow: string[],
+  analysis: AnalysisResult,
+): boolean {
+  const moduleText = modules.map(m => `${m.name} ${m.responsibility}`).join(' ').toLowerCase();
+  const flowText = mainFlow.join(' ').toLowerCase();
+
+  // Check for forbidden placeholder names that slipped through
+  const hasForbidden = modules.some(m => isForbiddenName(m.name));
+
+  // Check for generic flow patterns
+  const genericFlowPatterns = [
+    'interactúa con el contenido',
+    'navega a funcionalidad',
+    'pantalla principal',
+    'ejecuta la acción principal',
+  ];
+  const hasGenericFlow = genericFlowPatterns.some(p => flowText.includes(p));
+
+  // Check domain keyword coverage in modules
+  const domainKeywords = analysis.keyConcepts.filter(k => k.length > 3);
+  const coveredInModules = domainKeywords.filter(k => moduleText.includes(k));
+  const coverageRatio = domainKeywords.length > 0
+    ? coveredInModules.length / domainKeywords.length
+    : 1;
+
+  // Generic if: has forbidden names, generic flow, or very low domain coverage
+  return hasForbidden || hasGenericFlow || (analysis.mechanics.length >= 2 && coverageRatio < 0.2);
 }

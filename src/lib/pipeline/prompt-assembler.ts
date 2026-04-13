@@ -13,18 +13,32 @@ function buildMasterPrompt(design: DesignStructure): string {
   lines.push('');
   lines.push(`**Usuario final:** ${design.objective.targetUser}`);
   lines.push(`**Acción principal:** ${design.objective.primaryAction}`);
+  if (design.systemCore) {
+    lines.push(`**Sistema central:** ${design.systemCore}`);
+  }
   lines.push('');
+
+  // Mechanics summary (V2.1)
+  if (design.mechanicsSummary.length > 0) {
+    lines.push('## 2. MECÁNICAS NUCLEARES DEL SISTEMA');
+    lines.push('');
+    lines.push('El sistema se basa en las siguientes mecánicas funcionales:');
+    lines.push('');
+    design.mechanicsSummary.forEach(m => lines.push(`- ${m}`));
+    lines.push('');
+  }
 
   // Constraints
   if (design.objective.constraints.length > 0) {
-    lines.push('## 2. RESTRICCIONES Y REQUISITOS');
+    lines.push(`## ${design.mechanicsSummary.length > 0 ? '3' : '2'}. RESTRICCIONES Y REQUISITOS`);
     lines.push('');
     design.objective.constraints.forEach(c => lines.push(`- ${c}`));
     lines.push('');
   }
 
   // Architecture
-  lines.push('## 3. ARQUITECTURA Y MÓDULOS');
+  const archSection = design.mechanicsSummary.length > 0 ? '4' : '3';
+  lines.push(`## ${archSection}. ARQUITECTURA Y MÓDULOS`);
   lines.push('');
   lines.push('La aplicación debe seguir una arquitectura modular con los siguientes módulos:');
   lines.push('');
@@ -38,7 +52,8 @@ function buildMasterPrompt(design: DesignStructure): string {
   });
 
   // Main flow
-  lines.push('## 4. FLUJO PRINCIPAL');
+  const flowSection = parseInt(archSection) + 1;
+  lines.push(`## ${flowSection}. FLUJO PRINCIPAL`);
   lines.push('');
   design.mainFlow.forEach((step, i) => {
     lines.push(`${i + 1}. ${step}`);
@@ -47,26 +62,26 @@ function buildMasterPrompt(design: DesignStructure): string {
 
   // Entities
   if (design.entities.length > 0) {
-    lines.push('## 5. ENTIDADES CLAVE');
+    lines.push(`## ${flowSection + 1}. ENTIDADES CLAVE`);
     lines.push('');
     design.entities.forEach(e => lines.push(`- ${e}`));
     lines.push('');
   }
 
   // Tech decisions
-  lines.push('## 6. DECISIONES TÉCNICAS');
+  lines.push(`## ${flowSection + 2}. DECISIONES TÉCNICAS`);
   lines.push('');
   design.techDecisions.forEach(d => lines.push(`- ${d}`));
   lines.push('');
 
   // Architecture constraints
-  lines.push('## 7. REGLAS DE ARQUITECTURA');
+  lines.push(`## ${flowSection + 3}. REGLAS DE ARQUITECTURA`);
   lines.push('');
   design.architectureConstraints.forEach(c => lines.push(`- ${c}`));
   lines.push('');
 
   // Implementation order
-  lines.push('## 8. ORDEN DE IMPLEMENTACIÓN');
+  lines.push(`## ${flowSection + 4}. ORDEN DE IMPLEMENTACIÓN`);
   lines.push('');
   lines.push('1. **Estructura:** Definir módulos, carpetas, tipos e interfaces');
   lines.push('2. **Función:** Implementar lógica de negocio y flujos principales');
@@ -80,7 +95,13 @@ function buildMasterPrompt(design: DesignStructure): string {
 function buildSummaryVariant(design: DesignStructure): PromptVariant {
   const lines: string[] = [];
   lines.push(`Construye: ${design.objective.summary}`);
+  if (design.systemCore) {
+    lines.push(`**Sistema:** ${design.systemCore}`);
+  }
   lines.push('');
+  if (design.mechanicsSummary.length > 0) {
+    lines.push(`**Mecánicas:** ${design.mechanicsSummary.join('; ')}`);
+  }
   lines.push(`**Módulos:** ${design.modules.map(m => m.name).join(', ')}`);
   lines.push(`**Flujo:** ${design.mainFlow.join(' → ')}`);
   lines.push(`**Entidades:** ${design.entities.join(', ')}`);
@@ -115,7 +136,15 @@ function buildStrictVariant(design: DesignStructure): PromptVariant {
   lines.push('');
   lines.push('## OBJETIVO');
   lines.push(design.objective.summary);
+  if (design.systemCore) {
+    lines.push(`**Sistema central:** ${design.systemCore}`);
+  }
   lines.push('');
+  if (design.mechanicsSummary.length > 0) {
+    lines.push('## MECÁNICAS DEL SISTEMA');
+    design.mechanicsSummary.forEach(m => lines.push(`- ${m}`));
+    lines.push('');
+  }
   lines.push('## MÓDULOS REQUERIDOS');
   design.modules.forEach(m => {
     lines.push(`- **${m.name}**: ${m.responsibility}`);
@@ -196,7 +225,14 @@ function buildIterativeVariant(design: DesignStructure): PromptVariant {
   lines.push('- Implementar barrel exports vacíos');
   lines.push('');
   lines.push('## FASE 2 — CORE');
-  lines.push('Implementa la funcionalidad mínima viable:');
+  if (design.mechanicsSummary.length > 0) {
+    lines.push('Implementa las mecánicas centrales del sistema:');
+    design.mechanicsSummary.forEach(m => lines.push(`- ${m}`));
+    lines.push('');
+    lines.push('Módulos de esta fase:');
+  } else {
+    lines.push('Implementa la funcionalidad mínima viable:');
+  }
   const coreModules = design.modules.slice(0, Math.ceil(design.modules.length / 2));
   coreModules.forEach(m => lines.push(`- ${m.name}: ${m.responsibility}`));
   lines.push('');

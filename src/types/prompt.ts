@@ -33,6 +33,9 @@ export interface DesignStructure {
   entities: string[];
   techDecisions: string[];
   architectureConstraints: string[];
+  systemCore: string;
+  mechanicsSummary: string[];
+  coverageWarnings: string[];
 }
 
 export interface PromptVariant {
@@ -60,6 +63,9 @@ export interface EvaluationScore {
   ambiguityRisk: number;
   monolithismRisk: number;
   contradictionRisk: number;
+  functionalCoverage: number;
+  domainSpecificity: number;
+  mechanicSpecificity: number;
   overall: number;
 }
 

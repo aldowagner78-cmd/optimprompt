@@ -3,6 +3,8 @@ export { parseIntent } from './intent-parser';
 export { extractConstraints } from './constraint-extractor';
 export { extractEntities } from './entity-extractor';
 export { classifyProject } from './project-classifier';
+export { extractCoreMechanics, extractPlatformConstraints, extractKeyConcepts, detectSystemType } from './core-mechanics-extractor';
+export { validateCoverage, generateMissingModules } from './coverage-validator';
 export { designStructure } from './structure-designer';
 export { assemblePrompt } from './prompt-assembler';
 export { refinePrompt } from './prompt-refiner';

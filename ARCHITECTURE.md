@@ -1,4 +1,4 @@
-# Arquitectura — OptimPrompt V2
+# Arquitectura — OptimPrompt V2.1
 
 ## Visión General
 
@@ -19,15 +19,16 @@ OptimPrompt sigue una **arquitectura modular por features** con pipeline de proc
 │              Adapters / Services                 │
 │  AI Provider (factory + status) | History Storage│
 ├─────────────────────────────────────────────────┤
-│            Pipeline V2 (Pure Logic)              │
+│            Pipeline V2.1 (Pure Logic)             │
 │  intent-parser | constraint-extractor            │
 │  entity-extractor | project-classifier           │
+│  core-mechanics-extractor | coverage-validator   │
 │  structure-designer | prompt-assembler            │
 │  prompt-refiner | evaluator | analyze (orchestr.) │
 ├─────────────────────────────────────────────────┤
 │                    Types                         │
 │  prompt | intent | constraint | entity | analysis │
-│  history | ai-provider                           │
+│  history | ai-provider | mechanics                │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -40,29 +41,33 @@ Tipos e interfaces centrales. No contienen lógica. Son el contrato entre capas.
 - `PromptIdea`: Input del usuario (idea textual)
 - `DesignStructure`: Resultado del análisis estructural
 - `PromptResult`: Prompt maestro + 4 variantes
-- `EvaluationScore`: 13 métricas + overall score
+- `EvaluationScore`: 16 métricas + overall score
 - `OptimizationResult`: Observaciones + prompt mejorado + changesSummary + preservedIntent
 - `AIProvider`: Interfaz que deben implementar todos los motores de IA
-- `ParsedIntent`: Intención parseada (goal, targetUser, actions, domain, complexity)
+- `ParsedIntent`: Intención parseada (goal, targetUser, actions, domain, complexity, systemType, dominantVerb, expectedOutcome)
 - `ExtractedConstraint`: Restricción extraída (7 categorías)
 - `ExtractedEntity`: Entidad extraída con relaciones
-- `AnalysisResult`: Resultado completo del pipeline de análisis
+- `AnalysisResult`: Resultado completo del pipeline de análisis (incluye mechanics[] y platformConstraints[])
+- `CoreMechanic`: Mecánica funcional detectada (id, label, category, subMechanics)
+- `FunctionalCoverage`: Resultado de validación de cobertura
 - `HistoryEntry`: Entrada del historial
 
 ### 2. Pipeline V2 (`src/lib/pipeline/`)
 
-Motor central — 9 módulos de lógica pura, sin dependencias de React ni estado.
+Motor central — 11 módulos de lógica pura, sin dependencias de React ni estado.
 
 | Módulo | Función |
-|--------|---------|
-| **intent-parser** | Extrae goal, targetUser, actions, domain, complexity del texto |
-| **constraint-extractor** | 40+ patrones regex en 7 categorías (técnicas, rendimiento, seguridad, UX, negocio, infraestructura, compatibilidad) |
+|--------|--------|
+| **intent-parser** | Extrae goal, targetUser, actions, domain, complexity, systemType del texto |
+| **constraint-extractor** | 40+ patrones regex en 7 categorías |
 | **entity-extractor** | 18 patrones de entidades con detección de relaciones |
 | **project-classifier** | Clasificación ponderada del tipo de proyecto con score de confianza |
-| **structure-designer** | Genera diseño (módulos, flujos, entidades, decisiones) a partir del análisis |
-| **prompt-assembler** | Construye prompt maestro + 4 variantes (resumida, estricta, modular, creativa) |
+| **core-mechanics-extractor** | (V2.1) 25+ reglas en 6 categorías (control, recompensa, validación, interacción, progreso, restricción) |
+| **coverage-validator** | (V2.1) Valida cobertura de mecánicas en el diseño, genera módulos faltantes |
+| **structure-designer** | Genera diseño (módulos desde mecánicas del dominio, flujos, entidades) |
+| **prompt-assembler** | Construye prompt maestro + 4 variantes con mecánicas integradas |
 | **prompt-refiner** | 11 reglas de detección de problemas + reescritura inteligente |
-| **evaluator** | 13 métricas dimensionales independientes |
+| **evaluator** | 16 métricas dimensionales independientes |
 | **analyze** | Orquestador que conecta los módulos en secuencia |
 
 ### 3. Adapters (`src/adapters/`)
@@ -123,16 +128,18 @@ Usuario escribe idea
   HeuristicProvider.analyzeIdea()                │
        │                                         │
        ├─→ intent-parser.parseIntent()           │
-       ├─→ constraint-extractor.extract()        │ Pipeline V2
+       ├─→ constraint-extractor.extract()        │ Pipeline V2.1
        ├─→ entity-extractor.extract()            │
        ├─→ project-classifier.classify()         │
+       ├─→ core-mechanics-extractor.extract()    │ (V2.1)
        └─→ analyze() [orchestrator]              │
        │                                         │
        ▼                                         │
   structure-designer.designStructure()           │
+  + coverage-validator.validateCoverage()        │ (V2.1)
        │                                         │
        ▼                                    ─────┘
-  DesignPanel muestra: objetivo, módulos, flujo, entidades
+  DesignPanel muestra: objetivo, núcleo del sistema, mecánicas, módulos, flujo, entidades
        │
        ▼
   store.generatePrompt()
@@ -141,7 +148,7 @@ Usuario escribe idea
   prompt-assembler.assemble()
        │
        ▼
-  ResultPanel: prompt maestro + 4 variantes + evaluación (13 métricas)
+  ResultPanel: prompt maestro + 4 variantes + evaluación (16 métricas)
        │
        ▼
   Se guarda automáticamente en historial (LocalStorage)
@@ -161,7 +168,7 @@ Usuario pega prompt existente
        │ Reescritura inteligente
        ▼
   evaluator.evaluate() [antes y después]
-       │ 13 métricas comparadas
+       │ 16 métricas comparadas
        ▼
   OptimizeResultPanel: antes/después + changesSummary + preservedIntent
 ```
@@ -171,6 +178,7 @@ Usuario pega prompt existente
 | Decisión | Justificación |
 |----------|--------------|
 | **Pipeline modular** | Cada módulo es independiente, testeable y reemplazable |
+| **Mecánicas-first (V2.1)** | Módulos se generan desde mecánicas del dominio, no plantillas genéricas |
 | **Zustand** | Más simple que Redux, stores separados por flujo |
 | **Tailwind CSS 4** | Utilidades, zero-runtime, integración Vite nativa |
 | **HashRouter** | Compatibilidad con GitHub Pages (paths estáticos) |

@@ -1,4 +1,4 @@
-import { ArrowRight, Layers, GitBranch, Box, Cpu, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Layers, GitBranch, Box, Cpu, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 import type { DesignStructure } from '@/types';
 
@@ -34,6 +34,39 @@ export function DesignPanel({ design, onGenerate, isLoading = false }: DesignPan
           )}
         </div>
       </Card>
+
+      {/* System Core & Mechanics (V2.1) */}
+      {design.systemCore && (
+        <Card title="Núcleo del Sistema" className="border-l-4 border-l-info">
+          <p className="text-surface-200">{design.systemCore}</p>
+        </Card>
+      )}
+
+      {design.mechanicsSummary.length > 0 && (
+        <Card title="Mecánicas Detectadas">
+          <div className="grid gap-2">
+            {design.mechanicsSummary.map((m, i) => (
+              <div key={i} className="flex items-start gap-2 p-2 bg-surface-800 rounded-lg">
+                <Zap className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                <span className="text-sm text-surface-200">{m}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {design.coverageWarnings.length > 0 && (
+        <Card title="Advertencias de Cobertura" className="border-l-4 border-l-warning">
+          <ul className="space-y-1.5">
+            {design.coverageWarnings.map((w, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                <span className="text-surface-300">{w}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* Modules */}
       <Card title="Módulos Sugeridos">

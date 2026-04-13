@@ -292,6 +292,122 @@ function scoreContradictionRisk(prompt: string): { score: number; detail: string
   return { score: Math.min(risk, 10), detail: issues.length > 0 ? issues.join('; ') : 'sin contradicciones' };
 }
 
+// ── New V2.1 functional metrics ─────────────────────────────────────
+
+function scoreFunctionalCoverage(prompt: string): { score: number; detail: string } {
+  const lower = prompt.toLowerCase();
+  let score = 3;
+  const signals: string[] = [];
+
+  // Check for domain-specific terms (not just structural terms)
+  const domainTerms = [
+    'punto', 'canje', 'recompensa', 'bloqueo', 'límite', 'hábito',
+    'turno', 'cita', 'reserva', 'comisión', 'venta', 'ranking',
+    'nivel', 'progreso', 'streak', 'racha', 'monitoreo', 'permiso',
+    'examen', 'curso', 'lección', 'inventario', 'carrito', 'pedido',
+    'factura', 'suscripción', 'gamificación', 'logro', 'badge',
+    'calendario', 'agenda', 'notificación', 'recordatorio',
+    'stock', 'pago', 'pipeline', 'embudo', 'lead', 'prospecto',
+  ];
+
+  const found = domainTerms.filter(t => lower.includes(t));
+  if (found.length >= 5) { score += 4; signals.push(`${found.length} conceptos de dominio`); }
+  else if (found.length >= 3) { score += 3; signals.push(`${found.length} conceptos de dominio`); }
+  else if (found.length >= 1) { score += 1; signals.push(`${found.length} concepto(s) de dominio`); }
+  else { signals.push('sin conceptos de dominio específicos'); }
+
+  // Check for mechanic descriptions (verb + action)
+  const mechanicPatterns = [
+    /(?:el\s+sistema|el\s+módulo|la\s+app)\s+(?:debe|deberá|va a)\s+\w+/gi,
+    /(?:validar|calcular|monitorear|bloquear|canjear|premiar|notificar|rastrear)/gi,
+  ];
+
+  for (const pattern of mechanicPatterns) {
+    const matches = prompt.match(pattern);
+    if (matches && matches.length >= 2) { score += 1; signals.push('mecánicas específicas descritas'); break; }
+  }
+
+  // Penalize if prompt has lots of structure but no domain substance
+  const structuralTerms = ['módulo', 'componente', 'feature', 'architecture', 'patrón', 'interfaz'];
+  const structCount = structuralTerms.filter(t => lower.includes(t)).length;
+  if (structCount > 3 && found.length < 2) {
+    score -= 2;
+    signals.push('⚠ mucha estructura pero poco dominio');
+  }
+
+  return { score: Math.max(1, Math.min(score, 10)), detail: signals.join('; ') || 'sin señales' };
+}
+
+function scoreDomainSpecificity(prompt: string): { score: number; detail: string } {
+  const lower = prompt.toLowerCase();
+  let score = 3;
+  const signals: string[] = [];
+
+  // Penalize generic/vague module names
+  const genericNames = ['core feature', 'funcionalidad principal', 'entidad principal', 'core', 'main',
+    'interactúa con el contenido', 'ejecuta la acción principal', 'navega a funcionalidad'];
+  const genericFound = genericNames.filter(g => lower.includes(g));
+  if (genericFound.length > 0) {
+    score -= genericFound.length;
+    signals.push(`⚠ ${genericFound.length} término(s) genérico(s): ${genericFound.slice(0, 3).join(', ')}`);
+  }
+
+  // Reward specific module/feature names
+  const specificPatterns = [
+    /(?:gestión|sistema|módulo|control)\s+(?:de\s+)?(?:punto|canje|reserva|turno|venta|hábito|inventario|pago|comisi[oó]n|examen|curso|stock)/gi,
+    /(?:monitoreo|seguimiento|rastreo|tracking)\s+(?:de\s+)?(?:uso|tiempo|progreso|ventas|hábitos|actividad)/gi,
+  ];
+
+  for (const pattern of specificPatterns) {
+    const matches = prompt.match(pattern);
+    if (matches) {
+      score += Math.min(matches.length, 3);
+      signals.push(`${matches.length} referencia(s) específica(s) de dominio`);
+    }
+  }
+
+  // Check for concrete entities (not just "Usuario" and "Configuración")
+  const concreteEntities = [
+    'producto', 'pedido', 'tarea', 'mensaje', 'evento', 'curso',
+    'turno', 'cita', 'reserva', 'factura', 'comisión',
+  ];
+  const entityFound = concreteEntities.filter(e => lower.includes(e));
+  if (entityFound.length >= 3) { score += 2; signals.push(`${entityFound.length} entidades concretas`); }
+  else if (entityFound.length >= 1) { score += 1; signals.push(`${entityFound.length} entidad(es) concreta(s)`); }
+
+  return { score: Math.max(1, Math.min(score, 10)), detail: signals.join('; ') || 'sin especificidad' };
+}
+
+function scoreMechanicSpecificity(prompt: string): { score: number; detail: string } {
+  const lower = prompt.toLowerCase();
+  let score = 3;
+  const signals: string[] = [];
+
+  // Look for concrete mechanic descriptions
+  const mechanicIndicators = [
+    { label: 'reglas de negocio', patterns: ['regla', 'condición', 'si el usuario', 'cuando el', 'en caso de'] },
+    { label: 'submecánicas', patterns: ['saldo', 'límite diario', 'cooldown', 'streak', 'nivel', 'cuota', 'penalización', 'bonus'] },
+    { label: 'estados/transiciones', patterns: ['pendiente', 'completado', 'cancelado', 'aprobado', 'rechazado', 'en proceso', 'activo', 'inactivo'] },
+    { label: 'cálculos', patterns: ['calcular', 'porcentaje', 'acumulado', 'promedio', 'total', 'saldo', 'descuento'] },
+    { label: 'flujos específicos', patterns: ['si cumple', 'al completar', 'después de', 'antes de', 'cada vez que', 'al alcanzar'] },
+  ];
+
+  for (const indicator of mechanicIndicators) {
+    const found = indicator.patterns.filter(p => lower.includes(p));
+    if (found.length > 0) {
+      score += 1;
+      signals.push(indicator.label);
+    }
+  }
+
+  // Check for numbered rules or concrete business logic
+  const rulePatterns = /(?:regla|requisito|condición)\s*\d|^\s*\d+\.\s+(?:si|cuando|el\s+sistema|no\s+se\s+puede)/gim;
+  const ruleMatches = prompt.match(rulePatterns);
+  if (ruleMatches && ruleMatches.length >= 2) { score += 2; signals.push(`${ruleMatches.length} reglas concretas`); }
+
+  return { score: Math.max(1, Math.min(score, 10)), detail: signals.join('; ') || 'sin mecánicas específicas' };
+}
+
 // ── Observaciones, Checklist, Fortalezas/Debilidades ────────────────
 
 function generateObservations(score: EvaluationScore): EvaluationObservation[] {
@@ -320,6 +436,15 @@ function generateObservations(score: EvaluationScore): EvaluationObservation[] {
   if (score.constraintCoverage < 4) obs.push({ category: 'suggestion', area: 'Restricciones', message: 'Agrega restricciones explícitas sobre calidad, tamaño de archivos y testing.', impact: 'medium' });
   if (score.scalability < 5) obs.push({ category: 'suggestion', area: 'Escalabilidad', message: 'Menciona extensibilidad, interfaces y abstracciones.', impact: 'low' });
 
+  // V2.1 functional metrics
+  if (score.functionalCoverage >= 7) obs.push({ category: 'strength', area: 'Cobertura funcional', message: 'El prompt cubre los conceptos de dominio clave del producto.', impact: 'high' });
+  if (score.domainSpecificity >= 7) obs.push({ category: 'strength', area: 'Especificidad de dominio', message: 'El diseño usa términos específicos del dominio, no genéricos.', impact: 'high' });
+  if (score.mechanicSpecificity >= 7) obs.push({ category: 'strength', area: 'Mecánicas', message: 'Las mecánicas del sistema están bien descritas con reglas concretas.', impact: 'high' });
+
+  if (score.functionalCoverage < 5) obs.push({ category: 'weakness', area: 'Cobertura funcional', message: 'El prompt no refleja los conceptos funcionales clave del producto.', impact: 'high' });
+  if (score.domainSpecificity < 5) obs.push({ category: 'weakness', area: 'Especificidad', message: 'El diseño usa términos genéricos en lugar de conceptos del dominio.', impact: 'high' });
+  if (score.mechanicSpecificity < 4) obs.push({ category: 'suggestion', area: 'Mecánicas', message: 'Agrega reglas de negocio, estados y transiciones específicas del dominio.', impact: 'medium' });
+
   return obs;
 }
 
@@ -345,6 +470,7 @@ function computeOverall(s: Omit<EvaluationScore, 'overall'>): number {
     s.clarity, s.completeness, s.modularity, s.scalability,
     s.functionalPrecision, s.technicalSpecificity, s.methodologicalOrder,
     s.constraintCoverage, s.internalConsistency, s.flowQuality,
+    s.functionalCoverage, s.domainSpecificity, s.mechanicSpecificity,
   ];
   const negatives = [s.ambiguityRisk, s.monolithismRisk, s.contradictionRisk];
 
@@ -370,6 +496,9 @@ export function evaluatePromptV2(prompt: string): EvaluationResult {
   const ar = scoreAmbiguityRisk(prompt);
   const mr = scoreMonolithismRisk(prompt);
   const cr = scoreContradictionRisk(prompt);
+  const fc = scoreFunctionalCoverage(prompt);
+  const ds = scoreDomainSpecificity(prompt);
+  const ms = scoreMechanicSpecificity(prompt);
 
   const partial = {
     clarity: clarity.score,
@@ -385,6 +514,9 @@ export function evaluatePromptV2(prompt: string): EvaluationResult {
     ambiguityRisk: ar.score,
     monolithismRisk: mr.score,
     contradictionRisk: cr.score,
+    functionalCoverage: fc.score,
+    domainSpecificity: ds.score,
+    mechanicSpecificity: ms.score,
   };
 
   const scoreResult: EvaluationScore = {

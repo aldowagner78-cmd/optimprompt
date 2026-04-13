@@ -18,4 +18,5 @@ export type { HistoryEntry } from './history';
 export type { ParsedIntent } from './intent';
 export type { ExtractedConstraint } from './constraint';
 export type { ExtractedEntity } from './entity';
+export type { CoreMechanic, FunctionalCoverage, MechanicCategory } from './mechanics';
 export type { AnalysisResult } from './analysis';

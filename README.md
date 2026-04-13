@@ -1,4 +1,4 @@
-# OptimPrompt — Arquitecto de Prompts V2
+# OptimPrompt — Arquitecto de Prompts V2.1
 
 Aplicación profesional para transformar ideas vagas en prompts de alta calidad, orientados a construir aplicaciones modulares, escalables e intuitivas.
 
@@ -12,14 +12,16 @@ Principio rector: **Estructura → Función → Estética**
 2. **Función**: Lógica de negocio, flujos, validaciones
 3. **Estética**: Diseño visual, estilos, UX
 
-## Funcionalidades (V2)
+## Funcionalidades (V2.1)
 
-- **Crear prompt desde idea**: Describe tu idea y un pipeline de 9 módulos genera un prompt profesional
+- **Crear prompt desde idea**: Describe tu idea y un pipeline de 11 módulos genera un prompt profesional
+- **Extracción de mecánicas nucleares** (V2.1): Detecta automáticamente las mecánicas funcionales del dominio (control, recompensas, validación, interacción, progreso, restricción)
+- **Validación de cobertura** (V2.1): Verifica que cada mecánica detectada tiene representación en los módulos generados, con auto-corrección
 - **Optimizar prompt existente**: 11 reglas de detección de problemas + reconstrucción inteligente
 - **Análisis profundo**: Parser de intención, extractor de restricciones (40+ patrones, 7 categorías), extractor de entidades (18 patrones con relaciones), clasificador de proyecto ponderado
-- **Diseño estructural**: Genera automáticamente objetivo, módulos, flujo principal, entidades y decisiones técnicas
-- **Generación de variantes**: Prompt maestro + 4 variantes (resumida, estricta, modular, creativa)
-- **Evaluación dimensional**: 13 métricas independientes (claridad, completitud, modularidad, escalabilidad, precisión, especificidad, coherencia, UX, testing, seguridad, rendimiento, mantenibilidad, documentación)
+- **Diseño estructural**: Genera módulos desde mecánicas del dominio (no desde plantillas genéricas)
+- **Generación de variantes**: Prompt maestro + 4 variantes (resumida, estricta, modular, iterativa por fases)
+- **Evaluación dimensional**: 16 métricas independientes (claridad, completitud, modularidad, escalabilidad, precisión, especificidad, coherencia, UX, testing, seguridad, rendimiento, mantenibilidad, documentación, cobertura funcional, especificidad de dominio, especificidad de mecánicas)
 - **Historial local**: Resultados guardados en LocalStorage con comparación
 
 ## Stack Técnico
@@ -33,7 +35,7 @@ Principio rector: **Estructura → Función → Estética**
 | Routing | React Router 7 (HashRouter) |
 | Iconos | Lucide React |
 | Persistencia | LocalStorage |
-| Motor IA | Pipeline heurístico V2 (extensible a Ollama / WebLLM) |
+| Motor IA | Pipeline heurístico V2.1 (extensible a Ollama / WebLLM) |
 | Deploy | GitHub Pages via GitHub Actions |
 
 ## Inicio Rápido
@@ -62,16 +64,18 @@ src/
 │   ├── prompt-optimizer/      # OptimizeForm, OptimizeResultPanel
 │   ├── prompt-result/         # ResultPanel
 │   └── history/               # HistoryList
-├── lib/pipeline/              # Motor V2 — lógica pura (9 módulos)
+├── lib/pipeline/              # Motor V2.1 — lógica pura (11 módulos)
 │   ├── analyze.ts                  # Orquestador del pipeline
-│   ├── intent-parser.ts            # Extrae goal, targetUser, actions, domain, complexity
+│   ├── intent-parser.ts            # Extrae goal, targetUser, actions, domain, complexity, systemType
 │   ├── constraint-extractor.ts     # 40+ patrones, 7 categorías de restricciones
 │   ├── entity-extractor.ts         # 18 patrones de entidades con relaciones
 │   ├── project-classifier.ts       # Clasificación ponderada con confianza
-│   ├── structure-designer.ts       # Genera diseño a partir del análisis
+│   ├── core-mechanics-extractor.ts # (V2.1) 25+ reglas de mecánicas en 6 categorías
+│   ├── coverage-validator.ts       # (V2.1) Validación de cobertura funcional
+│   ├── structure-designer.ts       # Genera diseño desde mecánicas del dominio
 │   ├── prompt-assembler.ts         # Prompt maestro + 4 variantes
 │   ├── prompt-refiner.ts           # 11 reglas de detección + reescritura
-│   └── evaluator.ts               # 13 métricas independientes
+│   └── evaluator.ts               # 16 métricas independientes
 ├── pages/                     # Páginas — orquestadoras de features
 ├── services/                  # Infraestructura (history-storage)
 ├── stores/                    # Estado global (Zustand, 3 stores)
@@ -84,7 +88,8 @@ Ver [ARCHITECTURE.md](./ARCHITECTURE.md) para detalles completos.
 
 ### Principios clave
 
-- **Pipeline modular**: 9 módulos independientes, cada uno testeable y reemplazable
+- **Pipeline modular**: 11 módulos independientes, cada uno testeable y reemplazable
+- **Mecánicas-first** (V2.1): Los módulos se generan desde las mecánicas funcionales del dominio, no desde plantillas genéricas
 - **Adaptadores desacoplados**: Interfaz `AIProvider` + factory con status por proveedor
 - **Lógica pura**: El pipeline en `lib/pipeline/` no tiene dependencias de React ni estado
 - **Estado encapsulado**: Stores exponen acciones de alto nivel (`submitIdea`, `submitPrompt`)
@@ -94,7 +99,7 @@ Ver [ARCHITECTURE.md](./ARCHITECTURE.md) para detalles completos.
 
 | Proveedor | Status | Descripción |
 |-----------|--------|-------------|
-| Motor Heurístico V2 | ✅ Activo | Pipeline local de 9 módulos, sin costo |
+| Motor Heurístico V2.1 | ✅ Activo | Pipeline local de 11 módulos, sin costo |
 | Ollama (LLM Local) | 🔧 Stub | Requiere servidor Ollama en localhost:11434 |
 | IA en Navegador | 📋 Planificado | WebLLM / Transformers.js (experimental) |
 

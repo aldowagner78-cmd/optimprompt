@@ -58,7 +58,7 @@ export function SettingsPage() {
         <div className="space-y-2 text-sm text-surface-400">
           <p><span className="text-surface-200">Versión:</span> 2.0.0</p>
           <p><span className="text-surface-200">Metodología:</span> Estructura → Función → Estética</p>
-          <p><span className="text-surface-200">Motor actual:</span> Pipeline heurístico V2 (13 métricas, 4 variantes)</p>
+          <p><span className="text-surface-200">Motor actual:</span> Pipeline heurístico V2.1 (16 métricas, 4 variantes)</p>
         </div>
       </Card>
     </div>

@@ -1,4 +1,5 @@
 import type { ParsedIntent } from '@/types';
+import { detectSystemType } from './core-mechanics-extractor';
 
 const ACTION_VERBS = [
   'crear', 'construir', 'hacer', 'desarrollar', 'implementar', 'diseñar',
@@ -92,6 +93,28 @@ function extractGoal(input: string): string {
   return first.length > longest.length * 0.5 ? first : longest;
 }
 
+function extractExpectedOutcome(input: string): string {
+  // Look for explicit outcome markers
+  const outcomePatterns = [
+    /(?:para|con el fin de|con el objetivo de|de modo que|de manera que)\s+(.{10,80}?)(?:\.|,|;|$)/i,
+    /(?:el resultado|el objetivo|la meta|el propósito)\s+(?:es|será|debería ser)\s+(.{10,60}?)(?:\.|,|;|$)/i,
+    /(?:que permita|que logre|que consiga|que facilite)\s+(.{10,60}?)(?:\.|,|;|$)/i,
+  ];
+
+  for (const pattern of outcomePatterns) {
+    const match = input.match(pattern);
+    if (match) return match[1].trim();
+  }
+
+  // Fallback: derive from main goal
+  const sentences = input.split(/[.\n]+/).map(s => s.trim()).filter(s => s.length > 10);
+  if (sentences.length > 1) {
+    return sentences[sentences.length - 1];
+  }
+
+  return 'producto funcional que cumpla los requisitos del usuario';
+}
+
 export function parseIntent(input: string): ParsedIntent {
   const actions = extractActionVerbs(input);
   const primaryAction = actions[0] ?? 'desarrollar';
@@ -100,6 +123,9 @@ export function parseIntent(input: string): ParsedIntent {
   const targetUser = detectTargetUser(input);
   const complexity = detectComplexity(input, actions);
   const goal = extractGoal(input);
+  const systemType = detectSystemType(input);
+  const dominantVerb = primaryAction;
+  const expectedOutcome = extractExpectedOutcome(input);
 
   return {
     goal,
@@ -108,5 +134,8 @@ export function parseIntent(input: string): ParsedIntent {
     secondaryActions,
     domain,
     complexity,
+    systemType,
+    dominantVerb,
+    expectedOutcome,
   };
 }

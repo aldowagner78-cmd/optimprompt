@@ -3,6 +3,7 @@ import { parseIntent } from './intent-parser';
 import { extractConstraints } from './constraint-extractor';
 import { extractEntities } from './entity-extractor';
 import { classifyProject } from './project-classifier';
+import { extractCoreMechanics, extractPlatformConstraints } from './core-mechanics-extractor';
 
 const TECH_SUGGESTIONS: Record<string, string[]> = {
   'e-commerce': ['Pasarela de pagos (Stripe/MercadoPago)', 'Carrito con estado persistente', 'Catálogo con filtros y búsqueda'],
@@ -35,6 +36,10 @@ export function analyzeInput(rawInput: string, hintProjectType?: ProjectType): A
   const entities = extractEntities(rawInput);
   const { type: projectType, confidence } = classifyProject(rawInput, hintProjectType);
 
+  // V2.1: Extract core mechanics and platform constraints
+  const mechanics = extractCoreMechanics(rawInput);
+  const platformConstraints = extractPlatformConstraints(rawInput);
+
   // Extract key phrases (improved)
   const keyPhrases = rawInput
     .split(/[.;,\n]+/)
@@ -59,5 +64,7 @@ export function analyzeInput(rawInput: string, hintProjectType?: ProjectType): A
     keyPhrases,
     suggestedTechnologies,
     detectedPatterns,
+    mechanics,
+    platformConstraints,
   };
 }
